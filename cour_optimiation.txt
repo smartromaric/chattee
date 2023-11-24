@@ -1,0 +1,29 @@
+# LA RECHERCHE TABOU
+on fait une liste appelée liste tabou qui est une liste fifo et on s'interdit de revenir vers les solutions
+conteunue dans cette liste dans cette approche pour eviter les cycle c'est a dire choix repetitif d'une meme
+solution sur plusieurs iterations, l'on s'interdit de choisir les k derniers mouvement. on considere ce k mouvement
+comme interdit, ce qui donne le nom de la methode (RECHERCHE TABOU). a chaque iteration, la solution choisit est la moins
+mauvaise des solutions non tabou. la recherche tabou repose sur une methode de deplacement dans l'espace des solutions en
+cherchant constamment a ameliorer la meilleure solution trouvee et en conservant en memoire la liste des precedents deplacements .
+cela permet de guider la recherche en dehors des elements precedemment parcourus l'on poursuit la recherche de solution meme lorsqu'un
+local est rencontré. pour cela, la methode :
+
+    - permet de deplacement qui n'ameliorent pas la solution
+    - utilise le principe de memoire pour eviter des retours en arriere
+
+la recherche tabou incorpore des strategies dite d'intensification et de diversification de la recherche.
+la strategie d'intensification utilisant  la memoire a moiyen ternme  sert a renforcer la recherche dans la regiond des
+meilleur solutions la trategie de diversification utilisant la memoire a longterme sert aguider la recherche dans de nouvelles
+regions .
+La memoire a cour terme correspondant a une strategie d'exploration agressive , represente la partie principale de la RT et a pour but
+de choisir le meilleur mvt, cet mvt pour etre aceepte doit verifier certaine contraainte appeler restriction tabou
+cet restriction tabou sont construite pour eviter des repetitions et les mvt n'ameliorant pas la solution .
+une autre strategie appele critere d'aspiration est generalement utiliser pour enlever les restriction Tabou , d'un mvt
+de haute qualite cet critere permet de passer outre certains cas interdits qui conssite a revoquer le statut Tabou d'un mvt
+(solution) si ce dernier permet d'atteindre une solution de qualite superieur a celle de la solution trouver jusqu'a lors
+
+#  critere d'arret
+on se base sur 2 critere , le 1er porte sur le nbr d'iterations , le 2eme se base sur une valeur seuil correspondant au nombre maximal
+d'iteration que l'on s'autorise en deux modification ( amelioration ) consecutive de la meilleur solution .
+on peut egalement considerer le temps total d'execution .
+

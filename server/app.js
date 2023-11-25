@@ -2,11 +2,15 @@ const express = require('express');
 const bcryptjs = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+
 const io = require('socket.io')(5001, {
     cors: {
         origin: 'http://localhost:3000',
     }
 });
+
+
+
 
 // Connect DB
 require('./db/connection');
@@ -23,6 +27,11 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cors());
 
 const port = process.env.PORT || 8000;
+
+const multer = require('multer');
+
+const storage = multer.memoryStorage(); // Stockage en mémoire, vous pouvez adapter selon vos besoins
+const upload = multer({ storage: storage });
 
 // Socket.io
 let users = [];
@@ -190,6 +199,7 @@ app.get('/api/conversations/:userId', async (req, res) => {
 app.post('/api/message', async (req, res) => {
     try {
         const { conversationId, senderId, message, receiverId = '' } = req.body;
+        const image = req.file;
         if (!senderId || !message) return res.status(400).send('Please fill all required fields')
         if (conversationId === 'new' && receiverId) {
             const newCoversation = new Conversations({ members: [senderId, receiverId] });

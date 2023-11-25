@@ -1,18 +1,74 @@
 import {useEffect, useRef, useState} from 'react'
 import Img1 from '../../assets/img1.jpg'
 import humain from '../../assets/humain.png'
+import new_message from '../../assets/no-message.jpg'
 import Input from '../../components/Input'
 import {io} from 'socket.io-client'
+import {useDropzone} from 'react-dropzone';
 
 
 const Dashboard = () => {
     const [user, setUser] = useState(JSON.parse(localStorage.getItem('user:detail')))
     const [conversations, setConversations] = useState([])
+    //mod by smart
+    const [contactsExist, setContactsExist] = useState(true);
+
+    const [selectedImage, setSelectedImage] = useState(null); // no ok
+
+    const [activeUsers, setActiveUsers] = useState([]);
+
+
     const [messages, setMessages] = useState({})
     const [message, setMessage] = useState('')
     const [users, setUsers] = useState([])
     const [socket, setSocket] = useState(null)
     const messageRef = useRef(null)
+
+
+    const isMounted = useRef(true);
+
+
+    useEffect(() => {
+        setSocket(io('http://localhost:5001'));
+
+        // Cleanup function to run on component unmount
+        return () => {
+            // Set isMounted to false when the component is unmounted
+            isMounted.current = false;
+
+            // Log out the user or perform any cleanup actions
+            logoutUser();
+        };
+    }, []);
+
+    // Logout function
+    const logoutUser = () => {
+        // const loggedInUser = JSON.parse(localStorage.getItem('user:detail'));
+        // const loggedInUserToken = JSON.parse(localStorage.getItem('user:token'));
+        //
+        // // Perform the logout action (clear user data, redirect, etc.)
+        // console.log(`User ${loggedInUser.fullName} is logging out.`);
+
+        // Optional: Clear user data from localStorage or perform any other cleanup
+        localStorage.clear()
+    };
+
+    // Add event listener for beforeunload
+    useEffect(() => {
+        const handleUnload = () => {
+            if (isMounted.current) {
+                logoutUser();
+            }
+        };
+
+        window.addEventListener('unload', handleUnload);
+
+        // Cleanup function to remove the event listener
+        return () => {
+            window.removeEventListener('unload', handleUnload);
+        };
+    }, []);
+
 
     useEffect(() => {
         setSocket(io('http://localhost:5001'))
@@ -22,6 +78,7 @@ const Dashboard = () => {
         socket?.emit('addUser', user?.id);
         socket?.on('getUsers', (users) => {
             console.log('activeUsers :>> ', users);
+            setActiveUsers(users)
         })
         socket?.on('getMessage', data => {
             setMessages(prev => ({
@@ -30,7 +87,17 @@ const Dashboard = () => {
             }))
         })
     }, [socket])
+    //
+    //mod by smart
+    useEffect(() => {
+        // Mettez à jour contactsExist en fonction de votre logique
+        const conversationExists = users.some(userObj =>
+            conversations.some(converObj => userObj.user.receiverId === converObj.user.receiverId)
+        );
 
+        setContactsExist(conversationExists);
+    }, [users, conversations])
+    //mod by smart
     useEffect(() => {
         messageRef?.current?.scrollIntoView({behavior: 'smooth'})
     }, [messages?.messages])
@@ -75,31 +142,114 @@ const Dashboard = () => {
         setMessages({messages: resData, receiver, conversationId})
     }
 
+    // const sendMessage = async (e) => {
+    //     setMessage('')
+    //     socket?.emit('sendMessage', {
+    //         senderId: user?.id,
+    //         receiverId: messages?.receiver?.receiverId,
+    //         message,
+    //         conversationId: messages?.conversationId
+    //     });
+    //     const res = await fetch(`http://localhost:8000/api/message`, {
+    //         method: 'POST',
+    //         headers: {
+    //             'Content-Type': 'application/json',
+    //         },
+    //         body: JSON.stringify({
+    //             conversationId: messages?.conversationId,
+    //             senderId: user?.id,
+    //             message,
+    //             receiverId: messages?.receiver?.receiverId
+    //         })
+    //     });
+    // }
+
+
     const sendMessage = async (e) => {
-        setMessage('')
+        setMessage('');
+
+        // Créez un objet FormData pour envoyer les données du formulaire, y compris l'image
+        const formData = new FormData();
+        formData.append('conversationId', messages?.conversationId);
+        formData.append('senderId', user?.id);
+        formData.append('message', message);
+        formData.append('receiverId', messages?.receiver?.receiverId);
+
+        // Si une image est sélectionnée, ajoutez-la à FormData
+        if (selectedImage) {
+            formData.append('image', selectedImage);
+        }
+
+        // Utilisez fetch pour envoyer les données au serveur
+        const res = await fetch(`http://localhost:8000/api/message`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        // ...
+
+        // Émettez le message via le socket
         socket?.emit('sendMessage', {
             senderId: user?.id,
             receiverId: messages?.receiver?.receiverId,
             message,
             conversationId: messages?.conversationId
         });
-        const res = await fetch(`http://localhost:8000/api/message`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                conversationId: messages?.conversationId,
-                senderId: user?.id,
-                message,
-                receiverId: messages?.receiver?.receiverId
-            })
+    };
+
+
+    const filteredUsers = users.filter(userObj =>
+
+        !conversations.some(converObj => userObj.user.receiverId === converObj.user.receiverId)
+    );
+    console.log("userObj.user.receiverId", filteredUsers)
+
+    const ImageUploader = () => {
+
+        // const [selectedImage, setSelectedImage] = useState(null);
+
+        const onDrop = (acceptedFiles) => {
+            // Mettez à jour l'état avec le fichier d'image sélectionné
+            setSelectedImage(acceptedFiles[0]);
+        };
+
+        const {getRootProps, getInputProps} = useDropzone({onDrop});
+
+        return (
+            <div>
+                <div {...getRootProps()}>
+                    <input {...getInputProps()} />
+                    <p>Glissez et déposez une image ici ou cliquez pour sélectionner</p>
+                </div>
+                {selectedImage && (
+                    <div>
+                        <p>Nom du fichier : {selectedImage.name}</p>
+                        <p>Type : {selectedImage.type}</p>
+                    </div>
+                )}
+            </div>
+        );
+    };
+    // const isUserOnline = (conv) => conv.map((entry) => activeUsers.some((user) => user.receiverId === entry.user.receiverId));
+    //
+    // console.log("activeUsers:", activeUsers);
+    // console.log("user ID:", user?.id);
+    // const onlineStatus = isUserOnline(user?.id);
+    // console.log("Is user online?", onlineStatus);
+    // const isUserOnline_id = (conv) => conv.map((entry) => entry.user.receiverId);
+    // console.log(conversations.map((entry) => entry.user.receiverId))
+    const isUserOnline = (conv) => {
+        return conv.map((entry) => {
+            const isOnline = activeUsers.some((user) => user.userId === entry.user.receiverId);
+            return isOnline
         });
-    }
+    };
+    const onlineStatus = isUserOnline(conversations, activeUsers);
+    console.log(onlineStatus);
 
     return (
         <div className='w-screen flex'>
-            <div className='w-[25%] h-screen bg-secondary overflow-scroll'>
+            <div className='w-[25%] h-screen bg-secondary overflow-scroll no-scrollbar '>
                 <div className='flex items-center  bg-gray-700 py-10'>
                     <div><img src={humain} width={75} height={75}
                               className='border border-primary p-[2px] rounded-full'/></div>
@@ -123,11 +273,15 @@ const Dashboard = () => {
                                                  onClick={() => fetchMessages(conversationId, user)}>
                                                 <div><img src={humain}
                                                           className="w-[50px] h-[50px] rounded-full p-[2px] border border-primary"/>
+                                                    {/*{isUserOnline(conversations)?.find(entry => entry.receiverId === user.receiverId)?.isOnline && (*/}
+                                                    {/*    <span*/}
+                                                    {/*        className='ml-2 inline-block w-3 h-3 bg-green-500 rounded-full'></span>*/}
+                                                    {/*)}*/}
                                                 </div>
                                                 <div className='ml-6'>
                                                     <h3 className='text-lg font-semibold'>{user?.fullName}</h3>
                                                     {/*amod*/}
-                                                    <p className='text-sm font-light text-gray-600'>{}</p>
+                                                    <p className='text-sm font-light text-gray-600'>{user.id}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -161,7 +315,7 @@ const Dashboard = () => {
                         </div>
                     </div>
                 }
-                <div className='h-[75%] w-full overflow-scroll shadow-sm'>
+                <div className='h-[75%] w-full overflow-scroll no-scrollbar shadow-sm'>
                     <div className='p-14'>
                         {
                             messages?.messages?.length > 0 ?
@@ -174,8 +328,15 @@ const Dashboard = () => {
                                         </>
                                     )
                                 }) :
-                                <div className='text-center text-lg  font-semibold text-gray-300 mt-24'> Pas de Messages ou
-                                    de Conversation Selectionée </div>
+                                <div>
+                                    <img src={new_message} alt=""/>
+                                    <div className='text-center text-lg  font-semibold text-gray-300 mt-15'> Pas de
+                                        Messages
+                                        ou
+                                        de Conversation Selectionée
+                                    </div>
+                                </div>
+
                         }
                     </div>
                 </div>
@@ -183,7 +344,14 @@ const Dashboard = () => {
                     messages?.receiver?.fullName &&
                     <div className='p-14 w-full flex items-center'>
                         <Input placeholder='Ecrivez votre message...' value={message}
-                               onChange={(e) => setMessage(e.target.value)} className='w-[75%]'
+                               onChange={(e) => setMessage(e.target.value)}
+                            //envoie avec la touche ENTRE
+                               onKeyPress={(e) => {
+                                   if (e.key === 'Enter' && !e.shiftKey) {
+                                       sendMessage();
+                                   }
+                               }}
+                               className='w-[75%]'
                                inputClassName='p-4 border-0 shadow-md rounded-full bg-light focus:ring-0 focus:border-0 outline-none'/>
                         <div
                             className={`ml-4 p-2 cursor-pointer bg-primary rounded-full ${!message && 'pointer-events-none'}`}
@@ -196,9 +364,11 @@ const Dashboard = () => {
                                 <path
                                     d="M21 3l-6.5 18a0.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a0.55 .55 0 0 1 0 -1l18 -6.5"/>
                             </svg>
+
                         </div>
                         <div
-                            className={`ml-4 p-2 cursor-pointer bg-light rounded-full ${!message && 'pointer-events-none'}`}>
+                            className={`ml-4 p-2 cursor-pointer bg-light rounded-full ${!message && 'pointer-events-none'}`}
+                        >
                             <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-circle-plus"
                                  width="30" height="30" viewBox="0 0 24 24" stroke-width="1.5" stroke="#2c3e50"
                                  fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -208,43 +378,38 @@ const Dashboard = () => {
                                 <line x1="12" y1="9" x2="12" y2="15"/>
                             </svg>
                         </div>
+
                     </div>
                 }
             </div>
-            <div className='w-[25%] h-screen bg-light  overflow-scroll'>
+            <div className='w-[25%] h-screen bg-light  overflow-scroll no-scrollbar'>
                 <div className='flex justify-center bg-gray-700 py-8'>
                     <div className='text-primary text-2xl text-white'>Nouveau Contacts</div>
                 </div>
-                <div>
-                    {
-                        users.length > 0 ? (
-                            users
-                                .filter(({user}) => {
-                                    // Vérifie si l'utilisateur n'a pas de conversation existante
-                                    console.log(messages)
-                                    return !conversations.some(converObj => user.receiverId === converObj.user.receiverId);
-                                })
-                                .map(({userId, user}) => (
-                                    <div key={userId} className='flex items-center py-8 border-b border-b-gray-300'>
-                                        <div className='cursor-pointer flex items-center'
-                                             onClick={() => fetchMessages('new', user)}>
-                                            <div>
-                                                <img src={humain} width={50} height={50}
-                                                     className="rounded-full p-[2px] border border-primary"/>
-                                            </div>
-                                            <div className='ml-6'>
-                                                <h3 className='text-lg font-semibold'>{user?.fullName}</h3>
-                                                <p className='text-sm font-light text-gray-600'>{user?.email}</p>
-                                            </div>
+                {
+                    <div>
+                        {contactsExist ? (
+                            filteredUsers.map(({userId, user}) => (
+                                <div key={userId} className='flex items-center py-8 border-b border-b-gray-300'>
+                                    <div className='cursor-pointer flex items-center'
+                                         onClick={() => fetchMessages('new', user)}>
+                                        <div>
+                                            <img src={humain} width={50} height={50}
+                                                 className="rounded-full p-[2px] border border-primary"/>
+                                        </div>
+                                        <div className='ml-6'>
+                                            <h3 className='text-lg font-semibold'>{user?.fullName}</h3>
+                                            <p className='text-sm font-light text-gray-600'>{user?.email}</p>
                                         </div>
                                     </div>
-                                ))
+                                </div>
+                            ))
                         ) : (
                             <p>Aucun contact</p>
-                        )
-                    }
+                        )}
+                    </div>
+                }
 
-                </div>
             </div>
         </div>
     )

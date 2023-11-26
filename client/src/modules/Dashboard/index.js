@@ -61,11 +61,11 @@ const Dashboard = () => {
             }
         };
 
-        window.addEventListener('unload', handleUnload);
+        window.addEventListener('beforeunload', handleUnload);
 
         // Cleanup function to remove the event listener
         return () => {
-            window.removeEventListener('unload', handleUnload);
+            window.removeEventListener('beforeunload', handleUnload);
         };
     }, []);
 
@@ -92,12 +92,13 @@ const Dashboard = () => {
     useEffect(() => {
         // Mettez à jour contactsExist en fonction de votre logique
         const conversationExists = users.some(userObj =>
-            conversations.some(converObj => userObj.user.receiverId === converObj.user.receiverId)
+            !conversations.some(converObj => userObj.user.receiverId === converObj.user.receiverId)
         );
 
         setContactsExist(conversationExists);
     }, [users, conversations])
     //mod by smart
+
     useEffect(() => {
         messageRef?.current?.scrollIntoView({behavior: 'smooth'})
     }, [messages?.messages])
@@ -113,6 +114,7 @@ const Dashboard = () => {
             });
             const resData = await res.json()
             setConversations(resData)
+
         }
         fetchConversations()
     }, [])
@@ -132,6 +134,9 @@ const Dashboard = () => {
     }, [])
 
     const fetchMessages = async (conversationId, receiver) => {
+        // verifier si conversation.user.receiverId == receiver
+       // const a = conversations.map((entry)=>entry.user.receiverid === receiver)
+       //  console.log("a",a)
         const res = await fetch(`http://localhost:8000/api/message/${conversationId}?senderId=${user?.id}&&receiverId=${receiver?.receiverId}`, {
             method: 'GET',
             headers: {
@@ -142,67 +147,67 @@ const Dashboard = () => {
         setMessages({messages: resData, receiver, conversationId})
     }
 
-    // const sendMessage = async (e) => {
-    //     setMessage('')
-    //     socket?.emit('sendMessage', {
-    //         senderId: user?.id,
-    //         receiverId: messages?.receiver?.receiverId,
-    //         message,
-    //         conversationId: messages?.conversationId
-    //     });
-    //     const res = await fetch(`http://localhost:8000/api/message`, {
-    //         method: 'POST',
-    //         headers: {
-    //             'Content-Type': 'application/json',
-    //         },
-    //         body: JSON.stringify({
-    //             conversationId: messages?.conversationId,
-    //             senderId: user?.id,
-    //             message,
-    //             receiverId: messages?.receiver?.receiverId
-    //         })
-    //     });
-    // }
-
-
     const sendMessage = async (e) => {
-        setMessage('');
-
-        // Créez un objet FormData pour envoyer les données du formulaire, y compris l'image
-        const formData = new FormData();
-        formData.append('conversationId', messages?.conversationId);
-        formData.append('senderId', user?.id);
-        formData.append('message', message);
-        formData.append('receiverId', messages?.receiver?.receiverId);
-
-        // Si une image est sélectionnée, ajoutez-la à FormData
-        if (selectedImage) {
-            formData.append('image', selectedImage);
-        }
-
-        // Utilisez fetch pour envoyer les données au serveur
-        const res = await fetch(`http://localhost:8000/api/message`, {
-            method: 'POST',
-            body: formData,
-        });
-
-        // ...
-
-        // Émettez le message via le socket
+        setMessage('')
         socket?.emit('sendMessage', {
             senderId: user?.id,
             receiverId: messages?.receiver?.receiverId,
             message,
             conversationId: messages?.conversationId
         });
-    };
+        const res = await fetch(`http://localhost:8000/api/message`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                conversationId: messages?.conversationId,
+                senderId: user?.id,
+                message,
+                receiverId: messages?.receiver?.receiverId
+            })
+        });
+    }
+
+
+    // const sendMessage = async (e) => {
+    //     setMessage('');
+    //
+    //     // Créez un objet FormData pour envoyer les données du formulaire, y compris l'image
+    //     const formData = new FormData();
+    //     formData.append('conversationId', messages?.conversationId);
+    //     formData.append('senderId', user?.id);
+    //     formData.append('message', message);
+    //     formData.append('receiverId', messages?.receiver?.receiverId);
+    //
+    //     // Si une image est sélectionnée, ajoutez-la à FormData
+    //     if (selectedImage) {
+    //         formData.append('image', selectedImage);
+    //     }
+    //
+    //     // Utilisez fetch pour envoyer les données au serveur
+    //     const res = await fetch(`http://localhost:8000/api/message`, {
+    //         method: 'POST',
+    //         body: formData,
+    //     });
+    //
+    //     // ...
+    //
+    //     // Émettez le message via le socket
+    //     socket?.emit('sendMessage', {
+    //         senderId: user?.id,
+    //         receiverId: messages?.receiver?.receiverId,
+    //         message,
+    //         conversationId: messages?.conversationId
+    //     });
+    // };
 
 
     const filteredUsers = users.filter(userObj =>
-
         !conversations.some(converObj => userObj.user.receiverId === converObj.user.receiverId)
     );
-    console.log("userObj.user.receiverId", filteredUsers)
+    console.log("userObj.user.receiverId", conversations)
+    // console.log("conve exist", contactsExist(filteredUsers))
 
     const ImageUploader = () => {
 
@@ -245,7 +250,7 @@ const Dashboard = () => {
         });
     };
     const onlineStatus = isUserOnline(conversations, activeUsers);
-    console.log(onlineStatus);
+    console.log(conversations);
 
     return (
         <div className='w-screen flex'>
@@ -273,15 +278,11 @@ const Dashboard = () => {
                                                  onClick={() => fetchMessages(conversationId, user)}>
                                                 <div><img src={humain}
                                                           className="w-[50px] h-[50px] rounded-full p-[2px] border border-primary"/>
-                                                    {/*{isUserOnline(conversations)?.find(entry => entry.receiverId === user.receiverId)?.isOnline && (*/}
-                                                    {/*    <span*/}
-                                                    {/*        className='ml-2 inline-block w-3 h-3 bg-green-500 rounded-full'></span>*/}
-                                                    {/*)}*/}
                                                 </div>
                                                 <div className='ml-6'>
                                                     <h3 className='text-lg font-semibold'>{user?.fullName}</h3>
                                                     {/*amod*/}
-                                                    <p className='text-sm font-light text-gray-600'>{user.id}</p>
+                                                    <p className='text-sm font-light text-gray-600'>{}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -405,7 +406,7 @@ const Dashboard = () => {
                                 </div>
                             ))
                         ) : (
-                            <p>Aucun contact</p>
+                            <div className='text-center text-lg font-semibold mt-24'>Pas de Nouveau Contact</div>
                         )}
                     </div>
                 }
